@@ -179,7 +179,7 @@
 
     (define (evaluate-and . exprs)
       (cond ((null? exprs) #t)
-            ((= 1 (length exprs)) (evaluate (car exprs)))
+            ((null? (cdr exprs)) (evaluate (car exprs)))
             (else
              (and (evaluate (car exprs))
                   (apply evaluate-and (cdr exprs))))))
