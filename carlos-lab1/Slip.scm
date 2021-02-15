@@ -7,7 +7,7 @@
 ;                   meta-level infrastructure
 ;
 ; <expression>  ::= <computation>|<lambda>|<quote>|<variable>|
-;                   <literal>|<null>|<let>|<cond>
+;                   <literal>|<null>|<let>|<cond>|<and>
 ; <computation> ::= <definition>|<assignment>|<sequence>|
 ;                   <conditional>|<iteration>|<application>
 ; <definition>  ::= (define <variable> <expression>)
@@ -31,7 +31,7 @@
 ; <binding>     ::= (<variable> <expression>)
 ; <cond>        ::= (cond <cond clause>+ (else <expression>))
 ; <cond clause> ::= (<expression> <expression>)
-
+; <and>         ::= (and <expression>*)
 (begin
   (define circularity-level 0)
   (define meta-level-eval eval)
@@ -181,6 +181,14 @@
                 (if (evaluate pred)
                     (evaluate (cadr clause))
                     (apply evaluate-cond (cdr clauses)))))))
+
+    (define (evaluate-and clause . expression)
+      (if (null? expression)
+          (evaluate clause)
+          (and (evaluate clause)
+               (apply evaluate-and
+                      (car expression)
+                      (cdr expression)))))
 ;
 ; evaluator
 ;
@@ -203,6 +211,7 @@
                ((while)  evaluate-while )
                ((let)    evaluate-let   )
                ((cond)   evaluate-cond  )
+               ((and)    evaluate-and   )
                (else     (evaluate-application operator))) operands)))
         (else
           expression)))
