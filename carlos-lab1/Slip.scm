@@ -178,10 +178,12 @@
                    (apply evaluate-cond (cdr clauses)))))))
 
     (define (evaluate-and . exprs)
-      (if (null? exprs)
-          #t
-          (and (evaluate (car exprs))
-               (apply evaluate-and (cdr exprs)))))
+      (cond ((null? exprs) #t)
+            ((= 1 (length exprs)) (evaluate (car exprs)))
+            (else
+             (and (evaluate (car exprs))
+                  (apply evaluate-and (cdr exprs))))))
+
 ;
 ; evaluator
 ;
