@@ -7,7 +7,7 @@
 ;                   meta-level infrastructure
 ;
 ; <expression>  ::= <computation>|<lambda>|<quote>|<variable>|
-;                   <literal>|<null> 
+;                   <literal>|<null>|<let>|<cond>
 ; <computation> ::= <definition>|<assignment>|<sequence>|
 ;                   <conditional>|<iteration>|<application>
 ; <definition>  ::= (define <variable> <expression>)
@@ -27,12 +27,29 @@
 ; <pattern>     ::= (<variable>+ . <variable>)
 ; <literal>     ::= [number]|[character]|[string]|#t|#f
 ; <null>        ::= ()
+; <let>         ::= (let (<binding spec>*) <expression>)
+; <binding>     ::= (<variable> <expression>)
+; <cond>        ::= (cond <cond clause>+ (else <expression>))
+; <cond clause> ::= (<expression> <expression>)
 
 (begin
   (define circularity-level 0)
   (define meta-level-eval eval)
   (define eval '())
   (define environment '())
+
+  (define primitives-loaded #f)
+  (define primitives-approach1
+    (list
+         '(define (++ z x) (+ (* z z) (* x x)))
+         '(define (greet p) (display (string-append "hello " p)))))
+
+  ;primitives apporach 2
+  (define (spanish-greet p)
+    (display (string-append "hola " p)))
+  (define (other++ x y)
+         (+ (* x x) (* y y)))
+
   (define (loop output)
     (define rollback environment)
 
@@ -140,6 +157,30 @@
             (iterate (evaluate-sequence expressions)))))
       (iterate '()))
 
+    (define (evaluate-let bindings . expression)
+      (define save-environment environment)
+      (bind-parameters
+       (map car bindings)
+       (map (lambda (b)
+             (evaluate (cadr b)))
+           bindings))
+      (let ((v (evaluate-sequence expression)))
+        (set! environment save-environment)
+        v
+      ))
+
+    (define (evaluate-cond . clauses)
+      ; for more meaningfull error message
+      ; define cluases eval as an inner loop.
+      (if (null? clauses)
+          (error "else-clause missing " clauses)
+          (let* ((clause (car clauses))
+                 (pred (car clause)))
+            (if (eq? pred 'else)
+                (evaluate-sequence (cdr clause))
+                (if (evaluate pred)
+                    (evaluate (cadr clause))
+                    (apply evaluate-cond (cdr clauses)))))))
 ;
 ; evaluator
 ;
@@ -160,9 +201,19 @@
                ((quote)  evaluate-quote ) 
                ((set!)   evaluate-set!  )
                ((while)  evaluate-while )
+               ((let)    evaluate-let   )
+               ((cond)   evaluate-cond  )
                (else     (evaluate-application operator))) operands)))
         (else
           expression)))
+;
+; load-primitives
+;
+    (if (not primitives-loaded)
+        (begin (for-each (lambda(pm)
+                  (evaluate pm))
+                  primitives-approach1)
+               (set! primitives-loaded #t)))
 
 ;
 ; read-eval-print
