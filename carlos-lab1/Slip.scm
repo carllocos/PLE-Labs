@@ -170,25 +170,18 @@
       ))
 
     (define (evaluate-cond . clauses)
-      ; for more meaningfull error message
-      ; define cluases eval as an inner loop.
-      (if (null? clauses)
-          (error "else-clause missing " clauses)
-          (let* ((clause (car clauses))
-                 (pred (car clause)))
-            (if (eq? pred 'else)
-                (evaluate-sequence (cdr clause))
-                (if (evaluate pred)
-                    (evaluate (cadr clause))
-                    (apply evaluate-cond (cdr clauses)))))))
+      (cond ((pair? clauses)
+             (let* ((clause (car clauses))
+                    (pred (car clause)))
+               (if (or (eq? pred 'else) (evaluate pred))
+                   (evaluate-sequence (cdr clause))
+                   (apply evaluate-cond (cdr clauses)))))))
 
-    (define (evaluate-and clause . expression)
-      (if (null? expression)
-          (evaluate clause)
-          (and (evaluate clause)
-               (apply evaluate-and
-                      (car expression)
-                      (cdr expression)))))
+    (define (evaluate-and . exprs)
+      (if (null? exprs)
+          #t
+          (and (evaluate (car exprs))
+               (apply evaluate-and (cdr exprs)))))
 ;
 ; evaluator
 ;
