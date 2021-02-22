@@ -26,6 +26,11 @@
 ; <pattern>     ::= (<variable>+ . <variable>)
 ; <literal>     ::= [number]|[character]|[string]|#t|#f
 ; <null>        ::= ()
+; <let>         ::= (let (<binding>*) <expression>)
+; <binding>     ::= (<variable> <expression>)
+; <cond>        ::= (cond <cond clause>+ (else <expression>))
+; <cond clause> ::= (<expression> <expression>)
+; <and>         ::= (and <expression>*)
 
 
 ; don't use syntactic constructs (e.g. cond, do, ...) or higher 
@@ -177,8 +182,45 @@
                 (evaluate-sequence expressions continue-after-sequence)))
           (evaluate predicate continue-after-predicate))
         (iterate '())))
-    
-    (define (evaluate-let
+
+    ; <let>         ::= (let (<binding>*) <expression>)
+    ; <binding>     ::= (<variable> <expression>)
+    (define (evaluate-let bindings . expressions)
+      (lambda (continue)
+        (define env-prior-let environment)
+        (define (continue-after-let let-val)
+          (set! environment env-prior-let)
+          (continue let-val))
+        (define (iter bindings-list)
+          (if (null? bindings-list)
+              (evaluate-sequence expressions continue-after-let)
+              (let ((exp (car (cdr (car bindings-list)))))
+                (define (continue-after-exp binding-value)
+                  (define var  (car (car bindings-list)))
+                  (set! environment (cons (cons var  binding-value) environment))
+                  (iter (cdr bindings-list)))
+                (evaluate exp continue-after-exp))))
+        (iter bindings)))
+
+
+    ; <cond>        ::= (cond <cond clause>+ (else <expression>))
+    ; <cond clause> ::= (<expression> <expression>)
+    (define (evaluate-cond . clauses)
+      (lambda (continue)
+        (define (iter clauses-lst)
+          (if (null? clauses-lst)
+              (continue '()) ;simulates (cond) or cond without else branch e.g. (cond (#f 3))
+              (let* ((clause (car clauses-lst))
+                     (pred (car clause)))
+                    (define (cont-after-pred p)
+                      (if p
+                          (evaluate-sequence (cdr clause) continue)
+                          (iter (cdr clauses-lst))))
+                (if (eq? pred 'else)
+                    (evaluate-sequence (cdr clause) continue)
+                    (evaluate pred cont-after-pred)))))
+        (iter clauses)))
+
     ;
     ; evaluator
     ;
@@ -200,6 +242,7 @@
                ((set!)   evaluate-set!  )
                ((while)  evaluate-while )
                ((let)    evaluate-let)
+               ((cond)   evaluate-cond)
                (else     (evaluate-application operator))) operands) continue)))
         (else
          (continue expression))))
